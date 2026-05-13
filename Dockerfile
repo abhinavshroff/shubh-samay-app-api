@@ -10,7 +10,9 @@ RUN apt-get update \
 COPY go.mod go.sum* ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w" -o api ./cmd/api
+# libswe uses libm symbols (sin, cos, sqrt, etc.); pass -lm through cgo so
+# the external linker resolves them after -lswe during the final link step.
+RUN CGO_LDFLAGS="-lm" CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w" -o api ./cmd/api
 
 FROM debian:bookworm-slim
 RUN apt-get update \
