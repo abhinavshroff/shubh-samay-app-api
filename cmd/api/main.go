@@ -1,80 +1,101 @@
 package main
 
 import (
+	"bufio"
 	"log"
+	"net/http"
 	"os"
+	"strings"
 
-	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
 	"github.com/shubh-samay/api/internal/config"
 	"github.com/shubh-samay/api/internal/db"
 	"github.com/shubh-samay/api/internal/handlers"
+	"github.com/shubh-samay/api/internal/panchang"
 )
 
 func main() {
-	_ = godotenv.Load()
+	loadDotenv(".env")
 
 	cfg := config.Load()
-	pool, err := db.Connect(cfg.DatabaseURL)
+	panchang.Init(cfg.EphePath)
+
+	database, err := db.Connect(cfg.DatabaseURL)
 	if err != nil {
 		log.Fatalf("DB connect failed: %v", err)
 	}
-	defer pool.Close()
+	defer database.Close()
 
-	if err := db.Migrate(pool); err != nil {
+	if err := db.Migrate(database); err != nil {
 		log.Fatalf("Migration failed: %v", err)
 	}
 
-	r := gin.Default()
-	r.Use(corsMiddleware())
-
-	v1 := r.Group("/v1")
-	{
-		v1.GET("/health", func(c *gin.Context) { c.JSON(200, gin.H{"status": "ok"}) })
-		v1.GET("/panchang", handlers.GetPanchang)
-		v1.GET("/festivals", handlers.GetFestivals)
-		v1.GET("/lunar-days", handlers.GetLunarDays)
-		v1.GET("/muhurat", handlers.FindMuhurat)
-		v1.GET("/config", handlers.GetConfig(pool))
-		v1.POST("/devices", handlers.RegisterDevice(pool))
-
-		admin := v1.Group("/admin")
-		admin.Use(adminAuth(cfg.AdminToken))
-		{
-			admin.PATCH("/flags/:key", handlers.UpdateFlag(pool))
-			admin.GET("/flags", handlers.ListFlags(pool))
-		}
-	}
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /v1/health", func(w http.ResponseWriter, r *http.Request) {
+		handlers.WriteJSON(w, http.StatusOK, handlers.JSONMap{"status": "ok"})
+	})
+	mux.HandleFunc("GET /v1/panchang", handlers.GetPanchang)
+	mux.HandleFunc("GET /v1/festivals", handlers.GetFestivals)
+	mux.HandleFunc("GET /v1/lunar-days", handlers.GetLunarDays)
+	mux.HandleFunc("GET /v1/muhurat", handlers.FindMuhurat)
+	mux.HandleFunc("GET /v1/config", handlers.GetConfig(database))
+	mux.HandleFunc("POST /v1/devices", handlers.RegisterDevice(database))
+	mux.HandleFunc("PATCH /v1/admin/flags/{key}", adminAuth(cfg.AdminToken, handlers.UpdateFlag(database)))
+	mux.HandleFunc("GET /v1/admin/flags", adminAuth(cfg.AdminToken, handlers.ListFlags(database)))
 
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
 	log.Printf("Shubh Samay API listening on :%s", port)
-	if err := r.Run(":" + port); err != nil {
+	if err := http.ListenAndServe(":"+port, corsMiddleware(mux)); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func corsMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.Header("Access-Control-Allow-Origin", "*")
-		c.Header("Access-Control-Allow-Methods", "GET,POST,PATCH,OPTIONS")
-		c.Header("Access-Control-Allow-Headers", "Content-Type,Authorization")
-		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(204)
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PATCH,OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type,Authorization,X-Admin-Token")
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
 			return
 		}
-		c.Next()
+		next.ServeHTTP(w, r)
+	})
+}
+
+func adminAuth(token string, next handlers.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Admin-Token") != token {
+			handlers.WriteError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+		next(w, r)
 	}
 }
 
-func adminAuth(token string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		if c.GetHeader("X-Admin-Token") != token {
-			c.AbortWithStatusJSON(401, gin.H{"error": "unauthorized"})
-			return
+func loadDotenv(path string) {
+	file, err := os.Open(path)
+	if err != nil {
+		return
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
 		}
-		c.Next()
+		key, value, ok := strings.Cut(line, "=")
+		if !ok {
+			continue
+		}
+		key = strings.TrimSpace(key)
+		value = strings.Trim(strings.TrimSpace(value), `"'`)
+		if key != "" && os.Getenv(key) == "" {
+			_ = os.Setenv(key, value)
+		}
 	}
 }

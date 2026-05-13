@@ -69,23 +69,23 @@ var KaranaNames = []string{
 // Rahu Kaal proportions per weekday (8ths of day duration)
 // Sun=0, Mon=1, Tue=2, Wed=3, Thu=4, Fri=5, Sat=6
 var rahuKaalPart = []int{8, 2, 7, 5, 6, 4, 3}
-var gulikaPart   = []int{7, 6, 5, 4, 3, 2, 1}
+var gulikaPart = []int{7, 6, 5, 4, 3, 2, 1}
 var yamagandPart = []int{5, 4, 3, 2, 1, 7, 6}
 
 type Result struct {
-	Date       string
-	Weekday    string
-	WeekdayHi  string
-	Tithi      Element
-	Nakshatra  Element
-	Yoga       Element
-	Karana     Element
-	Sunrise    string
-	Sunset     string
-	RahuKaal   TimeRange
-	GulikaKaal TimeRange
-	Yamagandam TimeRange
-	Abhijit    TimeRange
+	Date          string
+	Weekday       string
+	WeekdayHi     string
+	Tithi         Element
+	Nakshatra     Element
+	Yoga          Element
+	Karana        Element
+	Sunrise       string
+	Sunset        string
+	RahuKaal      TimeRange
+	GulikaKaal    TimeRange
+	Yamagandam    TimeRange
+	Abhijit       TimeRange
 	BrahmaMuhurat TimeRange
 }
 
@@ -125,33 +125,39 @@ func Compute(date time.Time, lat, lon float64, tz string) (*Result, error) {
 	}
 
 	// Compute Sun and Moon longitude at sunrise (sidereal Lahiri ayanamsa)
-	swe.SetSidMode(swe.SE_SIDM_LAHIRI, 0, 0)
+	swe.SetSidMode(swe.SeSidmLahiri, 0, 0)
 	jd := julianDay(sunriseT.UTC())
 
-	sunLon, err := bodyLongitude(jd, swe.SE_SUN)
+	sunLon, err := bodyLongitude(jd, swe.SeSun)
 	if err != nil {
 		return nil, err
 	}
-	moonLon, err := bodyLongitude(jd, swe.SE_MOON)
+	moonLon, err := bodyLongitude(jd, swe.SeMoon)
 	if err != nil {
 		return nil, err
 	}
 
 	// Tithi: lunar phase / 12 degrees
 	diff := norm360(moonLon - sunLon)
-	tithiIdx := int(diff / 12.0)              // 0–29
-	if tithiIdx > 29 { tithiIdx = 29 }
+	tithiIdx := int(diff / 12.0) // 0–29
+	if tithiIdx > 29 {
+		tithiIdx = 29
+	}
 
 	// Nakshatra: Moon longitude / 13.333° (= 360/27)
 	nakIdx := int(moonLon / (360.0 / 27.0))
-	if nakIdx > 26 { nakIdx = 26 }
+	if nakIdx > 26 {
+		nakIdx = 26
+	}
 
 	// Yoga: (Sun + Moon) / 13.333°
 	yogaIdx := int(norm360(sunLon+moonLon) / (360.0 / 27.0))
-	if yogaIdx > 26 { yogaIdx = 26 }
+	if yogaIdx > 26 {
+		yogaIdx = 26
+	}
 
 	// Karana: half-tithi
-	karIdx := int(diff / 6.0) % 11
+	karIdx := int(diff/6.0) % 11
 
 	// Day duration in seconds for proportional periods
 	dayDurMs := sunsetT.Sub(sunriseT).Milliseconds()
@@ -162,33 +168,33 @@ func Compute(date time.Time, lat, lon float64, tz string) (*Result, error) {
 	weekdayHi := []string{"रविवार", "सोमवार", "मंगलवार", "बुधवार", "गुरुवार", "शुक्रवार", "शनिवार"}[weekday]
 
 	rahuStart := sunriseT.Add(time.Duration(int64(rahuKaalPart[weekday]-1)*partMs) * time.Millisecond)
-	gulStart  := sunriseT.Add(time.Duration(int64(gulikaPart[weekday]-1)*partMs)   * time.Millisecond)
-	yamStart  := sunriseT.Add(time.Duration(int64(yamagandPart[weekday]-1)*partMs) * time.Millisecond)
+	gulStart := sunriseT.Add(time.Duration(int64(gulikaPart[weekday]-1)*partMs) * time.Millisecond)
+	yamStart := sunriseT.Add(time.Duration(int64(yamagandPart[weekday]-1)*partMs) * time.Millisecond)
 
 	// Abhijit: midpoint ± 24 minutes
 	mid := sunriseT.Add(sunsetT.Sub(sunriseT) / 2)
 	abhiStart := mid.Add(-24 * time.Minute)
-	abhiEnd   := mid.Add(24 * time.Minute)
+	abhiEnd := mid.Add(24 * time.Minute)
 
 	// Brahma muhurat: 1.5h–48m before sunrise (next day)
 	nextSunrise, _ := sunRiseSet(day.AddDate(0, 0, 1), lat, lon, true)
 	brahmaStart := nextSunrise.Add(-96 * time.Minute)
-	brahmaEnd   := nextSunrise.Add(-48 * time.Minute)
+	brahmaEnd := nextSunrise.Add(-48 * time.Minute)
 
 	return &Result{
-		Date:      day.Format("2006-01-02"),
-		Weekday:   weekdayName,
-		WeekdayHi: weekdayHi,
-		Tithi:     Element{TithiNames[tithiIdx], TithiNamesHi[tithiIdx], TithiNamesTe[tithiIdx], ""},
-		Nakshatra: Element{NakshatraNames[nakIdx], NakshatraNamesHi[nakIdx], "", ""},
-		Yoga:      Element{YogaNames[yogaIdx], "", "", ""},
-		Karana:    Element{KaranaNames[karIdx], "", "", ""},
-		Sunrise:   sunriseT.In(loc).Format("3:04 PM"),
-		Sunset:    sunsetT.In(loc).Format("3:04 PM"),
-		RahuKaal:    TimeRange{rahuStart.In(loc).Format("3:04 PM"), rahuStart.Add(time.Duration(partMs)*time.Millisecond).In(loc).Format("3:04 PM")},
-		GulikaKaal:  TimeRange{gulStart.In(loc).Format("3:04 PM"),  gulStart.Add(time.Duration(partMs)*time.Millisecond).In(loc).Format("3:04 PM")},
-		Yamagandam:  TimeRange{yamStart.In(loc).Format("3:04 PM"),  yamStart.Add(time.Duration(partMs)*time.Millisecond).In(loc).Format("3:04 PM")},
-		Abhijit:     TimeRange{abhiStart.In(loc).Format("3:04 PM"), abhiEnd.In(loc).Format("3:04 PM")},
+		Date:          day.Format("2006-01-02"),
+		Weekday:       weekdayName,
+		WeekdayHi:     weekdayHi,
+		Tithi:         Element{TithiNames[tithiIdx], TithiNamesHi[tithiIdx], TithiNamesTe[tithiIdx], ""},
+		Nakshatra:     Element{NakshatraNames[nakIdx], NakshatraNamesHi[nakIdx], "", ""},
+		Yoga:          Element{YogaNames[yogaIdx], "", "", ""},
+		Karana:        Element{KaranaNames[karIdx], "", "", ""},
+		Sunrise:       sunriseT.In(loc).Format("3:04 PM"),
+		Sunset:        sunsetT.In(loc).Format("3:04 PM"),
+		RahuKaal:      TimeRange{rahuStart.In(loc).Format("3:04 PM"), rahuStart.Add(time.Duration(partMs) * time.Millisecond).In(loc).Format("3:04 PM")},
+		GulikaKaal:    TimeRange{gulStart.In(loc).Format("3:04 PM"), gulStart.Add(time.Duration(partMs) * time.Millisecond).In(loc).Format("3:04 PM")},
+		Yamagandam:    TimeRange{yamStart.In(loc).Format("3:04 PM"), yamStart.Add(time.Duration(partMs) * time.Millisecond).In(loc).Format("3:04 PM")},
+		Abhijit:       TimeRange{abhiStart.In(loc).Format("3:04 PM"), abhiEnd.In(loc).Format("3:04 PM")},
 		BrahmaMuhurat: TimeRange{brahmaStart.In(loc).Format("3:04 PM"), brahmaEnd.In(loc).Format("3:04 PM")},
 	}, nil
 }
@@ -198,13 +204,13 @@ func Compute(date time.Time, lat, lon float64, tz string) (*Result, error) {
 func julianDay(t time.Time) float64 {
 	y, m, d := t.Year(), int(t.Month()), t.Day()
 	hour := float64(t.Hour()) + float64(t.Minute())/60.0 + float64(t.Second())/3600.0
-	return swe.JulDay(y, m, d, hour, swe.SE_GREG_CAL)
+	return swe.Julday(y, m, d, hour, swe.SeGregCal)
 }
 
 func bodyLongitude(jd float64, body int) (float64, error) {
 	xx := make([]float64, 6)
 	serr := make([]byte, 256)
-	flags := swe.SEFLG_SWIEPH | swe.SEFLG_SIDEREAL
+	flags := swe.SeflgSwieph | swe.SeflgSidereal
 	if ret := swe.Calc(jd, body, flags, xx, serr); ret < 0 {
 		return 0, fmt.Errorf("swe_calc failed: %s", string(serr))
 	}
@@ -214,11 +220,13 @@ func bodyLongitude(jd float64, body int) (float64, error) {
 func sunRiseSet(day time.Time, lat, lon float64, rise bool) (time.Time, error) {
 	jd := julianDay(time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, time.UTC))
 	geopos := []float64{lon, lat, 0}
-	rsmi := int32(swe.SE_CALC_SET)
-	if rise { rsmi = int32(swe.SE_CALC_RISE) }
+	rsmi := int32(swe.SeCalcSet)
+	if rise {
+		rsmi = int32(swe.SeCalcRise)
+	}
 	tret := make([]float64, 1)
 	serr := make([]byte, 256)
-	if ret := swe.RiseTrans(jd, swe.SE_SUN, nil, swe.SEFLG_SWIEPH, int(rsmi), geopos, 1013.25, 15.0, tret, serr); ret < 0 {
+	if ret := swe.RiseTrans(jd, swe.SeSun, nil, swe.SeflgSwieph, int(rsmi), geopos, 1013.25, 15.0, tret, serr); ret < 0 {
 		return time.Time{}, fmt.Errorf("rise/set failed: %s", string(serr))
 	}
 	// Convert JD back to UTC time
@@ -246,7 +254,11 @@ func jdToCal(jdn int) (int, int, int) {
 }
 
 func norm360(x float64) float64 {
-	for x < 0 { x += 360 }
-	for x >= 360 { x -= 360 }
+	for x < 0 {
+		x += 360
+	}
+	for x >= 360 {
+		x -= 360
+	}
 	return x
 }

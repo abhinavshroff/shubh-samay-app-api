@@ -1,15 +1,13 @@
 package handlers
 
 import (
-	"context"
+	"database/sql"
+	"encoding/json"
 	"net/http"
-
-	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type registerDeviceReq struct {
-	FCMToken      string  `json:"fcmToken" binding:"required"`
+	FCMToken      string  `json:"fcmToken"`
 	Language      string  `json:"language"`
 	CityName      string  `json:"cityName"`
 	Latitude      float64 `json:"latitude"`
@@ -22,11 +20,15 @@ type registerDeviceReq struct {
 	NotifBrahma   bool    `json:"notifBrahma"`
 }
 
-func RegisterDevice(pool *pgxpool.Pool) gin.HandlerFunc {
-	return func(c *gin.Context) {
+func RegisterDevice(db *sql.DB) HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 		var req registerDeviceReq
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			WriteError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if req.FCMToken == "" {
+			WriteError(w, http.StatusBadRequest, "fcmToken is required")
 			return
 		}
 		if req.Language == "" {
@@ -35,7 +37,7 @@ func RegisterDevice(pool *pgxpool.Pool) gin.HandlerFunc {
 		if req.Timezone == "" {
 			req.Timezone = "Asia/Kolkata"
 		}
-		_, err := pool.Exec(context.Background(),
+		_, err := db.ExecContext(r.Context(),
 			`INSERT INTO devices (fcm_token, language, city_name, latitude, longitude, timezone,
               notif_rahu, notif_morning, notif_festival, notif_ekadashi, notif_brahma)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
@@ -48,9 +50,9 @@ func RegisterDevice(pool *pgxpool.Pool) gin.HandlerFunc {
 			req.FCMToken, req.Language, req.CityName, req.Latitude, req.Longitude, req.Timezone,
 			req.NotifRahu, req.NotifMorning, req.NotifFestival, req.NotifEkadashi, req.NotifBrahma)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			WriteError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+		WriteJSON(w, http.StatusOK, JSONMap{"status": "ok"})
 	}
 }

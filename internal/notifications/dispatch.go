@@ -3,12 +3,12 @@ package notifications
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shubh-samay/api/internal/panchang"
 )
 
@@ -24,9 +24,9 @@ type fcmMessage struct {
 // DispatchRahuKaal — runs every minute via cron.
 // For each device, computes when Rahu Kaal starts today and pushes
 // a notification 15 minutes before.
-func DispatchRahuKaal(pool *pgxpool.Pool, fcmKey string) {
+func DispatchRahuKaal(pool *sql.DB, fcmKey string) {
 	ctx := context.Background()
-	rows, err := pool.Query(ctx,
+	rows, err := pool.QueryContext(ctx,
 		`SELECT id, fcm_token, language, latitude, longitude, timezone
      FROM devices WHERE notif_rahu=TRUE`)
 	if err != nil {
@@ -62,15 +62,15 @@ func DispatchRahuKaal(pool *pgxpool.Pool, fcmKey string) {
 		if mins >= 14 && mins <= 16 {
 			title, body := localiseRahu(lang, result.RahuKaal.From, result.RahuKaal.To)
 			sendFCM(fcmKey, token, title, body)
-			pool.Exec(ctx, "INSERT INTO notification_log (device_id, kind, success) VALUES ($1, 'rahu_kaal', TRUE)", id)
+			pool.ExecContext(ctx, "INSERT INTO notification_log (device_id, kind, success) VALUES ($1, 'rahu_kaal', TRUE)", id)
 		}
 	}
 }
 
 // DispatchMorning — runs at 7:00 AM IST daily
-func DispatchMorning(pool *pgxpool.Pool, fcmKey string) {
+func DispatchMorning(pool *sql.DB, fcmKey string) {
 	ctx := context.Background()
-	rows, _ := pool.Query(ctx,
+	rows, _ := pool.QueryContext(ctx,
 		`SELECT id, fcm_token, language, latitude, longitude, timezone
      FROM devices WHERE notif_morning=TRUE`)
 	defer rows.Close()
@@ -85,7 +85,7 @@ func DispatchMorning(pool *pgxpool.Pool, fcmKey string) {
 		}
 		title, body := localiseMorning(lang, result)
 		sendFCM(fcmKey, token, title, body)
-		pool.Exec(ctx, "INSERT INTO notification_log (device_id, kind, success) VALUES ($1, 'morning', TRUE)", id)
+		pool.ExecContext(ctx, "INSERT INTO notification_log (device_id, kind, success) VALUES ($1, 'morning', TRUE)", id)
 	}
 }
 
