@@ -1,21 +1,19 @@
 package handlers
 
 import (
-	"context"
+	"database/sql"
+	"encoding/json"
 	"net/http"
-
-	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"time"
 )
 
 // GetConfig — public endpoint, called by every app on launch.
 // Returns flat { flags: { key: bool } } map for fast client-side merge.
-func GetConfig(pool *pgxpool.Pool) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		rows, err := pool.Query(context.Background(),
-			"SELECT key, enabled FROM feature_flags")
+func GetConfig(db *sql.DB) HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		rows, err := db.QueryContext(r.Context(), "SELECT key, enabled FROM feature_flags")
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			WriteError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
 		defer rows.Close()
@@ -29,53 +27,60 @@ func GetConfig(pool *pgxpool.Pool) gin.HandlerFunc {
 			}
 			flags[key] = enabled
 		}
-		c.JSON(http.StatusOK, gin.H{"flags": flags})
+		if err := rows.Err(); err != nil {
+			WriteError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		WriteJSON(w, http.StatusOK, JSONMap{"flags": flags})
 	}
 }
 
-// ListFlags — admin only, returns full flag metadata
-func ListFlags(pool *pgxpool.Pool) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		rows, err := pool.Query(context.Background(),
-			"SELECT key, enabled, tier, updated_at FROM feature_flags ORDER BY key")
+// ListFlags — admin only, returns full flag metadata.
+func ListFlags(db *sql.DB) HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		rows, err := db.QueryContext(r.Context(), "SELECT key, enabled, tier, updated_at FROM feature_flags ORDER BY key")
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			WriteError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
 		defer rows.Close()
 
-		var out []gin.H
+		out := []JSONMap{}
 		for rows.Next() {
 			var key, tier string
 			var enabled bool
-			var updated string
-			rows.Scan(&key, &enabled, &tier, &updated)
-			out = append(out, gin.H{"key": key, "enabled": enabled, "tier": tier, "updatedAt": updated})
+			var updated time.Time
+			if err := rows.Scan(&key, &enabled, &tier, &updated); err != nil {
+				continue
+			}
+			out = append(out, JSONMap{"key": key, "enabled": enabled, "tier": tier, "updatedAt": updated.Format(time.RFC3339)})
 		}
-		c.JSON(http.StatusOK, gin.H{"flags": out})
+		if err := rows.Err(); err != nil {
+			WriteError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		WriteJSON(w, http.StatusOK, JSONMap{"flags": out})
 	}
 }
 
 // UpdateFlag — admin only, flips a flag remotely.
 // Every connected app picks up the change on next /config call (typically next launch
 // or background refresh).
-func UpdateFlag(pool *pgxpool.Pool) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		key := c.Param("key")
+func UpdateFlag(db *sql.DB) HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		key := r.PathValue("key")
 		var body struct {
 			Enabled bool `json:"enabled"`
 		}
-		if err := c.ShouldBindJSON(&body); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			WriteError(w, http.StatusBadRequest, "invalid body")
 			return
 		}
-		_, err := pool.Exec(context.Background(),
-			"UPDATE feature_flags SET enabled=$1, updated_at=NOW() WHERE key=$2",
-			body.Enabled, key)
+		_, err := db.ExecContext(r.Context(), "UPDATE feature_flags SET enabled=$1, updated_at=NOW() WHERE key=$2", body.Enabled, key)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			WriteError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"key": key, "enabled": body.Enabled})
+		WriteJSON(w, http.StatusOK, JSONMap{"key": key, "enabled": body.Enabled})
 	}
 }

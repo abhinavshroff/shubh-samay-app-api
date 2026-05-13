@@ -1,26 +1,29 @@
 package db
 
 import (
-	"context"
+	"database/sql"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	_ "github.com/lib/pq"
 )
 
-func Connect(url string) (*pgxpool.Pool, error) {
-	cfg, err := pgxpool.ParseConfig(url)
+func Connect(url string) (*sql.DB, error) {
+	db, err := sql.Open("postgres", url)
 	if err != nil {
 		return nil, err
 	}
-	cfg.MaxConns = 20
-	cfg.MinConns = 2
-	cfg.MaxConnLifetime = time.Hour
-	return pgxpool.NewWithConfig(context.Background(), cfg)
+	db.SetMaxOpenConns(20)
+	db.SetMaxIdleConns(2)
+	db.SetConnMaxLifetime(time.Hour)
+	if err := db.Ping(); err != nil {
+		db.Close()
+		return nil, err
+	}
+	return db, nil
 }
 
-func Migrate(pool *pgxpool.Pool) error {
-	ctx := context.Background()
-	_, err := pool.Exec(ctx, schemaSQL)
+func Migrate(db *sql.DB) error {
+	_, err := db.Exec(schemaSQL)
 	return err
 }
 
