@@ -25,7 +25,7 @@ services:
       DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/shubhsamay?sslmode=disable
       ADMIN_TOKEN: ${ADMIN_TOKEN:-CHANGE_ME}
       FCM_SERVER_KEY: ${FCM_SERVER_KEY:-}
-      EPHE_PATH: /app/ephemeris
+      EPHE_PATH: /usr/share/libswe/ephe
       PORT: 8080
     depends_on:
       postgres:

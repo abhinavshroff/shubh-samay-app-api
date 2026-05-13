@@ -3,6 +3,7 @@ package panchang
 import (
 	"fmt"
 	"math"
+	"path/filepath"
 	"time"
 
 	swe "github.com/mshafiee/swephgo"
@@ -72,6 +73,8 @@ var rahuKaalPart = []int{8, 2, 7, 5, 6, 4, 3}
 var gulikaPart = []int{7, 6, 5, 4, 3, 2, 1}
 var yamagandPart = []int{5, 4, 3, 2, 1, 7, 6}
 
+var ephemerisFlag = swe.SeflgMoseph
+
 type Result struct {
 	Date          string
 	Weekday       string
@@ -101,9 +104,28 @@ type TimeRange struct {
 	To   string `json:"to"`
 }
 
-// Init must be called once on app start to set the ephemeris path
+// Init must be called once on app start to set the ephemeris path.
 func Init(ephePath string) {
+	if ephePath == "" {
+		ephemerisFlag = swe.SeflgMoseph
+		return
+	}
+
 	swe.SetEphePath([]byte(ephePath))
+	if hasSwissEphemerisFiles(ephePath) {
+		ephemerisFlag = swe.SeflgSwieph
+		return
+	}
+
+	// Fall back to the built-in Moshier ephemeris when packaged Swiss
+	// Ephemeris data files are not present (for example in local dev).
+	ephemerisFlag = swe.SeflgMoseph
+}
+
+func hasSwissEphemerisFiles(ephePath string) bool {
+	planetFiles, planetErr := filepath.Glob(filepath.Join(ephePath, "sepl_*.se1"))
+	moonFiles, moonErr := filepath.Glob(filepath.Join(ephePath, "semo_*.se1"))
+	return planetErr == nil && moonErr == nil && len(planetFiles) > 0 && len(moonFiles) > 0
 }
 
 // Compute returns full panchang for a given date and location.
@@ -177,7 +199,10 @@ func Compute(date time.Time, lat, lon float64, tz string) (*Result, error) {
 	abhiEnd := mid.Add(24 * time.Minute)
 
 	// Brahma muhurat: 1.5h–48m before sunrise (next day)
-	nextSunrise, _ := sunRiseSet(day.AddDate(0, 0, 1), lat, lon, true)
+	nextSunrise, err := sunRiseSet(day.AddDate(0, 0, 1), lat, lon, true)
+	if err != nil {
+		return nil, err
+	}
 	brahmaStart := nextSunrise.Add(-96 * time.Minute)
 	brahmaEnd := nextSunrise.Add(-48 * time.Minute)
 
@@ -210,7 +235,7 @@ func julianDay(t time.Time) float64 {
 func bodyLongitude(jd float64, body int) (float64, error) {
 	xx := make([]float64, 6)
 	serr := make([]byte, 256)
-	flags := swe.SeflgSwieph | swe.SeflgSidereal
+	flags := ephemerisFlag | swe.SeflgSidereal
 	if ret := swe.Calc(jd, body, flags, xx, serr); ret < 0 {
 		return 0, fmt.Errorf("swe_calc failed: %s", string(serr))
 	}
@@ -226,7 +251,7 @@ func sunRiseSet(day time.Time, lat, lon float64, rise bool) (time.Time, error) {
 	}
 	tret := make([]float64, 1)
 	serr := make([]byte, 256)
-	if ret := swe.RiseTrans(jd, swe.SeSun, nil, swe.SeflgSwieph, int(rsmi), geopos, 1013.25, 15.0, tret, serr); ret < 0 {
+	if ret := swe.RiseTrans(jd, swe.SeSun, nil, ephemerisFlag, int(rsmi), geopos, 1013.25, 15.0, tret, serr); ret < 0 {
 		return time.Time{}, fmt.Errorf("rise/set failed: %s", string(serr))
 	}
 	// Convert JD back to UTC time
