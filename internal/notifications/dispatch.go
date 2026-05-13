@@ -70,15 +70,20 @@ func DispatchRahuKaal(pool *sql.DB, fcmKey string) {
 // DispatchMorning — runs at 7:00 AM IST daily
 func DispatchMorning(pool *sql.DB, fcmKey string) {
 	ctx := context.Background()
-	rows, _ := pool.QueryContext(ctx,
+	rows, err := pool.QueryContext(ctx,
 		`SELECT id, fcm_token, language, latitude, longitude, timezone
      FROM devices WHERE notif_morning=TRUE`)
+	if err != nil {
+		return
+	}
 	defer rows.Close()
 
 	for rows.Next() {
 		var id, token, lang, tz string
 		var lat, lon float64
-		rows.Scan(&id, &token, &lang, &lat, &lon, &tz)
+		if err := rows.Scan(&id, &token, &lang, &lat, &lon, &tz); err != nil {
+			continue
+		}
 		result, err := panchang.Compute(time.Now(), lat, lon, tz)
 		if err != nil {
 			continue

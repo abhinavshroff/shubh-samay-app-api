@@ -16,11 +16,11 @@ RUN CGO_LDFLAGS="-lm" CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w" -o api 
 
 FROM debian:bookworm-slim
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates tzdata libswe2.0 \
+    && apt-get install -y --no-install-recommends ca-certificates tzdata libswe2.0 swe-basic-data \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=builder /build/api .
-COPY --from=builder /build/ephemeris ./ephemeris
 ENV TZ=Asia/Kolkata
+ENV EPHE_PATH=/usr/share/libswe/ephe
 EXPOSE 8080
 CMD ["./api"]

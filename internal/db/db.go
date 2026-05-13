@@ -28,6 +28,8 @@ func Migrate(db *sql.DB) error {
 }
 
 const schemaSQL = `
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 CREATE TABLE IF NOT EXISTS feature_flags (
   key         TEXT PRIMARY KEY,
   enabled     BOOLEAN NOT NULL DEFAULT TRUE,

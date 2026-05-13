@@ -13,7 +13,7 @@ func Load() *Config {
 	return &Config{
 		DatabaseURL: getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/shubhsamay?sslmode=disable"),
 		AdminToken:  getEnv("ADMIN_TOKEN", "change-me-in-production"),
-		EphePath:    getEnv("EPHE_PATH", "./ephemeris"),
+		EphePath:    getEnv("EPHE_PATH", "/usr/share/libswe/ephe"),
 		FCMKey:      getEnv("FCM_SERVER_KEY", ""),
 	}
 }
