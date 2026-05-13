@@ -1,0 +1,56 @@
+package handlers
+
+import (
+	"context"
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+type registerDeviceReq struct {
+	FCMToken      string  `json:"fcmToken" binding:"required"`
+	Language      string  `json:"language"`
+	CityName      string  `json:"cityName"`
+	Latitude      float64 `json:"latitude"`
+	Longitude     float64 `json:"longitude"`
+	Timezone      string  `json:"timezone"`
+	NotifRahu     bool    `json:"notifRahu"`
+	NotifMorning  bool    `json:"notifMorning"`
+	NotifFestival bool    `json:"notifFestival"`
+	NotifEkadashi bool    `json:"notifEkadashi"`
+	NotifBrahma   bool    `json:"notifBrahma"`
+}
+
+func RegisterDevice(pool *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req registerDeviceReq
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		if req.Language == "" {
+			req.Language = "en"
+		}
+		if req.Timezone == "" {
+			req.Timezone = "Asia/Kolkata"
+		}
+		_, err := pool.Exec(context.Background(),
+			`INSERT INTO devices (fcm_token, language, city_name, latitude, longitude, timezone,
+              notif_rahu, notif_morning, notif_festival, notif_ekadashi, notif_brahma)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+       ON CONFLICT (fcm_token) DO UPDATE SET
+         language=EXCLUDED.language, city_name=EXCLUDED.city_name,
+         latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude, timezone=EXCLUDED.timezone,
+         notif_rahu=EXCLUDED.notif_rahu, notif_morning=EXCLUDED.notif_morning,
+         notif_festival=EXCLUDED.notif_festival, notif_ekadashi=EXCLUDED.notif_ekadashi,
+         notif_brahma=EXCLUDED.notif_brahma, updated_at=NOW()`,
+			req.FCMToken, req.Language, req.CityName, req.Latitude, req.Longitude, req.Timezone,
+			req.NotifRahu, req.NotifMorning, req.NotifFestival, req.NotifEkadashi, req.NotifBrahma)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	}
+}
