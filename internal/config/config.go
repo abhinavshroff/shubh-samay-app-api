@@ -11,7 +11,7 @@ type Config struct {
 
 func Load() *Config {
 	return &Config{
-		DatabaseURL: getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/shubhsamay?sslmode=disable"),
+		DatabaseURL: getEnv("DATABASE_URL", "postgresql://postgres:fIbAoiNykONGhzWfEzgOihhSfhRTduQq@postgres.railway.internal:5432/railway"),
 		AdminToken:  getEnv("ADMIN_TOKEN", "change-me-in-production"),
 		EphePath:    getEnv("EPHE_PATH", "/usr/share/libswe/ephe"),
 		FCMKey:      getEnv("FCM_SERVER_KEY", ""),
