@@ -9,12 +9,12 @@ import (
 )
 
 func GetPanchang(w http.ResponseWriter, r *http.Request) {
-	lat, err := strconv.ParseFloat(r.URL.Query().Get("lat"), 64)
+	lat, err := parseRequiredFloatQuery(r, "lat", "latitude")
 	if err != nil {
 		WriteError(w, http.StatusBadRequest, "invalid lat")
 		return
 	}
-	lon, err := strconv.ParseFloat(r.URL.Query().Get("lon"), 64)
+	lon, err := parseRequiredFloatQuery(r, "lon", "lng", "longitude")
 	if err != nil {
 		WriteError(w, http.StatusBadRequest, "invalid lon")
 		return
@@ -78,4 +78,14 @@ func FindMuhurat(w http.ResponseWriter, r *http.Request) {
 		"time":     "7:30 AM – 9:00 AM",
 		"meta":     "Rohini nakshatra • Shubha yoga • After sunrise",
 	})
+}
+
+func parseRequiredFloatQuery(r *http.Request, names ...string) (float64, error) {
+	query := r.URL.Query()
+	for _, name := range names {
+		if value := query.Get(name); value != "" {
+			return strconv.ParseFloat(value, 64)
+		}
+	}
+	return 0, strconv.ErrSyntax
 }
