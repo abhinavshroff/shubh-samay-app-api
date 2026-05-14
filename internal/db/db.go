@@ -101,4 +101,34 @@ INSERT INTO feature_flags (key, enabled, tier) VALUES
   ('pdf_export',             TRUE, 'Freemium'),
   ('home_widget',            TRUE, 'Freemium')
 ON CONFLICT (key) DO NOTHING;
+
+-- Seed a computed-calendar fallback for common 2026 India festival dates. The
+-- API computes festivals from rules first; these rows are only returned if the
+-- astronomical calculator is unavailable.
+INSERT INTO festivals (date, name_en, name_hi, tithi_hi, region, significance)
+SELECT date::DATE, name_en, name_hi, tithi_hi, region, significance
+FROM (VALUES
+  ('2026-01-23', 'Vasant Panchami', 'वसंत पंचमी', 'माघ शुक्ल पंचमी', 'national', 'Magha Shukla Panchami'),
+  ('2026-02-15', 'Maha Shivaratri', 'महाशिवरात्रि', 'फाल्गुन कृष्ण चतुर्दशी', 'national', 'Phalguna Krishna Chaturdashi'),
+  ('2026-03-04', 'Holi', 'होली', 'फाल्गुन पूर्णिमा', 'national', 'Festival of colours'),
+  ('2026-03-26', 'Rama Navami', 'राम नवमी', 'चैत्र शुक्ल नवमी', 'national', 'Chaitra Shukla Navami'),
+  ('2026-04-20', 'Akshaya Tritiya', 'अक्षय तृतीया', 'वैशाख शुक्ल तृतीया', 'national', 'Vaishakha Shukla Tritiya'),
+  ('2026-05-01', 'Buddha Purnima', 'बुद्ध पूर्णिमा', 'वैशाख पूर्णिमा', 'national', 'Vaishakha Purnima'),
+  ('2026-07-29', 'Guru Purnima', 'गुरु पूर्णिमा', 'आषाढ़ पूर्णिमा', 'national', 'Ashadha Purnima'),
+  ('2026-08-28', 'Raksha Bandhan', 'रक्षा बंधन', 'श्रावण पूर्णिमा', 'national', 'Shravana Purnima'),
+  ('2026-09-04', 'Krishna Janmashtami', 'कृष्ण जन्माष्टमी', 'भाद्रपद कृष्ण अष्टमी', 'national', 'Bhadrapada Krishna Ashtami'),
+  ('2026-09-14', 'Ganesh Chaturthi', 'गणेश चतुर्थी', 'भाद्रपद शुक्ल चतुर्थी', 'national', 'Bhadrapada Shukla Chaturthi'),
+  ('2026-10-11', 'Sharad Navaratri Begins', 'शारदीय नवरात्रि प्रारंभ', 'आश्विन शुक्ल प्रतिपदा', 'national', 'Ashwin Shukla Pratipada'),
+  ('2026-10-20', 'Dussehra', 'दशहरा', 'आश्विन शुक्ल दशमी', 'national', 'Ashwin Shukla Dashami'),
+  ('2026-10-29', 'Karwa Chauth', 'करवा चौथ', 'कार्तिक कृष्ण चतुर्थी', 'north', 'Kartika Krishna Chaturthi'),
+  ('2026-11-06', 'Dhanteras', 'धनतेरस', 'कार्तिक कृष्ण त्रयोदशी', 'national', 'Kartika Krishna Trayodashi'),
+  ('2026-11-08', 'Diwali', 'दीपावली', 'कार्तिक अमावस्या', 'national', 'Kartika Amavasya'),
+  ('2026-11-10', 'Govardhan Puja', 'गोवर्धन पूजा', 'कार्तिक शुक्ल प्रतिपदा', 'national', 'Kartika Shukla Pratipada'),
+  ('2026-11-11', 'Bhai Dooj', 'भाई दूज', 'कार्तिक शुक्ल द्वितीया', 'national', 'Kartika Shukla Dwitiya'),
+  ('2026-11-24', 'Dev Diwali', 'देव दीपावली', 'कार्तिक पूर्णिमा', 'national', 'Kartika Purnima')
+) AS seed(date, name_en, name_hi, tithi_hi, region, significance)
+WHERE NOT EXISTS (
+  SELECT 1 FROM festivals f WHERE f.date = seed.date::DATE AND f.name_en = seed.name_en
+);
+
 `
