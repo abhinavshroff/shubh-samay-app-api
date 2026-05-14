@@ -76,20 +76,20 @@ var yamagandPart = []int{5, 4, 3, 2, 1, 7, 6}
 var ephemerisFlag = swe.SeflgMoseph
 
 type Result struct {
-	Date          string
-	Weekday       string
-	WeekdayHi     string
-	Tithi         Element
-	Nakshatra     Element
-	Yoga          Element
-	Karana        Element
-	Sunrise       string
-	Sunset        string
-	RahuKaal      TimeRange
-	GulikaKaal    TimeRange
-	Yamagandam    TimeRange
-	Abhijit       TimeRange
-	BrahmaMuhurat TimeRange
+	Date          string    `json:"date"`
+	Weekday       string    `json:"weekday"`
+	WeekdayHi     string    `json:"weekdayHi"`
+	Tithi         Element   `json:"tithi"`
+	Nakshatra     Element   `json:"nakshatra"`
+	Yoga          Element   `json:"yoga"`
+	Karana        Element   `json:"karana"`
+	Sunrise       string    `json:"sunrise"`
+	Sunset        string    `json:"sunset"`
+	RahuKaal      TimeRange `json:"rahuKaal"`
+	GulikaKaal    TimeRange `json:"gulikaKaal"`
+	Yamagandam    TimeRange `json:"yamagandam"`
+	Abhijit       TimeRange `json:"abhijit"`
+	BrahmaMuhurat TimeRange `json:"brahmaMuhurat"`
 }
 
 type Element struct {
