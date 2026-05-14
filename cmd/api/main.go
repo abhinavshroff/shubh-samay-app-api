@@ -34,7 +34,7 @@ func main() {
 		handlers.WriteJSON(w, http.StatusOK, handlers.JSONMap{"status": "ok"})
 	})
 	mux.HandleFunc("GET /v1/panchang", handlers.GetPanchang)
-	mux.HandleFunc("GET /v1/festivals", handlers.GetFestivals)
+	mux.HandleFunc("GET /v1/festivals", handlers.GetFestivals(database))
 	mux.HandleFunc("GET /v1/lunar-days", handlers.GetLunarDays)
 	mux.HandleFunc("GET /v1/muhurat", handlers.FindMuhurat)
 	mux.HandleFunc("GET /v1/config", handlers.GetConfig(database))

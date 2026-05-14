@@ -44,17 +44,6 @@ func GetPanchang(w http.ResponseWriter, r *http.Request) {
 	WriteJSON(w, http.StatusOK, result)
 }
 
-// Festivals — for MVP, return a curated stub. Replace with DB query when seeded.
-func GetFestivals(w http.ResponseWriter, r *http.Request) {
-	WriteJSON(w, http.StatusOK, JSONMap{
-		"items": []JSONMap{
-			{"date": "12 May", "name": "Buddha Purnima", "nameHi": "बुद्ध पूर्णिमा", "tithiHi": "वैशाख पूर्णिमा", "daysAway": 10},
-			{"date": "27 May", "name": "Amavasya", "nameHi": "अमावस्या", "tithiHi": "पितृ तर्पण का दिन", "daysAway": 25},
-			{"date": "11 Jun", "name": "Nirjala Ekadashi", "nameHi": "निर्जला एकादशी", "tithiHi": "ज्येष्ठ शुक्ल एकादशी", "daysAway": 40},
-		},
-	})
-}
-
 func GetLunarDays(w http.ResponseWriter, r *http.Request) {
 	lat, err := parseRequiredFloatQuery(r, "lat", "latitude")
 	if err != nil {

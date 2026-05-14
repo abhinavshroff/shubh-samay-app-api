@@ -92,3 +92,19 @@ func TestLunarDayJSONIncludesRegionalCalendarFields(t *testing.T) {
 		t.Fatalf("expected calendar %q in %s", CalendarSouth, payload)
 	}
 }
+
+func TestLunarMonthFromMoonLongitudeUsesFullMoonSign(t *testing.T) {
+	cases := map[float64]int{
+		0:   MonthKartika,
+		30:  MonthMargashirsha,
+		150: MonthChaitra,
+		180: MonthVaishakha,
+		330: MonthAshwin,
+	}
+
+	for moonLon, want := range cases {
+		if got := lunarMonthFromMoonLongitude(moonLon); got != want {
+			t.Fatalf("lunarMonthFromMoonLongitude(%v) = %d, want %d", moonLon, got, want)
+		}
+	}
+}
