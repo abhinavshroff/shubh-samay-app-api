@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
+
+	"github.com/shubh-samay/api/internal/panchang"
 )
 
 type registerDeviceReq struct {
@@ -13,6 +15,8 @@ type registerDeviceReq struct {
 	Latitude      float64 `json:"latitude"`
 	Longitude     float64 `json:"longitude"`
 	Timezone      string  `json:"timezone"`
+	Calendar      string  `json:"calendar"`
+	RegionalCal   string  `json:"regionalCalendar"`
 	NotifRahu     bool    `json:"notifRahu"`
 	NotifMorning  bool    `json:"notifMorning"`
 	NotifFestival bool    `json:"notifFestival"`
@@ -37,17 +41,19 @@ func RegisterDevice(db *sql.DB) HandlerFunc {
 		if req.Timezone == "" {
 			req.Timezone = "Asia/Kolkata"
 		}
+		calendar := panchang.NormalizeCalendar(firstNonEmpty(req.Calendar, req.RegionalCal))
 		_, err := db.ExecContext(r.Context(),
-			`INSERT INTO devices (fcm_token, language, city_name, latitude, longitude, timezone,
+			`INSERT INTO devices (fcm_token, language, city_name, latitude, longitude, timezone, calendar_region,
               notif_rahu, notif_morning, notif_festival, notif_ekadashi, notif_brahma)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
        ON CONFLICT (fcm_token) DO UPDATE SET
          language=EXCLUDED.language, city_name=EXCLUDED.city_name,
          latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude, timezone=EXCLUDED.timezone,
+         calendar_region=EXCLUDED.calendar_region,
          notif_rahu=EXCLUDED.notif_rahu, notif_morning=EXCLUDED.notif_morning,
          notif_festival=EXCLUDED.notif_festival, notif_ekadashi=EXCLUDED.notif_ekadashi,
          notif_brahma=EXCLUDED.notif_brahma, updated_at=NOW()`,
-			req.FCMToken, req.Language, req.CityName, req.Latitude, req.Longitude, req.Timezone,
+			req.FCMToken, req.Language, req.CityName, req.Latitude, req.Longitude, req.Timezone, calendar,
 			req.NotifRahu, req.NotifMorning, req.NotifFestival, req.NotifEkadashi, req.NotifBrahma)
 		if err != nil {
 			WriteError(w, http.StatusInternalServerError, err.Error())
@@ -55,4 +61,13 @@ func RegisterDevice(db *sql.DB) HandlerFunc {
 		}
 		WriteJSON(w, http.StatusOK, JSONMap{"status": "ok"})
 	}
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if value != "" {
+			return value
+		}
+	}
+	return ""
 }

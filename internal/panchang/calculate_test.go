@@ -40,3 +40,55 @@ func TestResultJSONUsesFrontendKeys(t *testing.T) {
 		}
 	}
 }
+
+func TestNormalizeCalendarSupportsRegionalAliases(t *testing.T) {
+	cases := map[string]string{
+		"":             CalendarNorth,
+		"North":        CalendarNorth,
+		"purnimanta":   CalendarNorth,
+		"South":        CalendarSouth,
+		"south_indian": CalendarSouth,
+		"amanta":       CalendarSouth,
+		"unknown":      CalendarNorth,
+	}
+
+	for input, want := range cases {
+		if got := NormalizeCalendar(input); got != want {
+			t.Fatalf("NormalizeCalendar(%q) = %q, want %q", input, got, want)
+		}
+	}
+}
+
+func TestLunarDayJSONIncludesRegionalCalendarFields(t *testing.T) {
+	item := LunarDay{
+		Date:     "2026-05-27",
+		Type:     "amavasya",
+		Label:    "Amavasya",
+		Tithi:    "Krishna Amavasya",
+		TithiHi:  "कृष्ण अमावस्या",
+		Paksha:   "Krishna",
+		PakshaHi: "कृष्ण",
+		Calendar: CalendarSouth,
+		Rule:     "active at local sunrise (South Indian amanta calendar)",
+		DaysAway: 13,
+	}
+
+	payload, err := json.Marshal(item)
+	if err != nil {
+		t.Fatalf("json.Marshal returned error: %v", err)
+	}
+
+	var decoded map[string]any
+	if err := json.Unmarshal(payload, &decoded); err != nil {
+		t.Fatalf("json.Unmarshal returned error: %v", err)
+	}
+
+	for _, key := range []string{"date", "type", "label", "tithi", "tithiHi", "paksha", "pakshaHi", "calendar", "rule", "daysAway"} {
+		if _, ok := decoded[key]; !ok {
+			t.Fatalf("expected JSON key %q in %s", key, payload)
+		}
+	}
+	if decoded["calendar"] != CalendarSouth {
+		t.Fatalf("expected calendar %q in %s", CalendarSouth, payload)
+	}
+}

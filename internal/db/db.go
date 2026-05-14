@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS devices (
   latitude        DOUBLE PRECISION,
   longitude       DOUBLE PRECISION,
   timezone        TEXT DEFAULT 'Asia/Kolkata',
+  calendar_region TEXT DEFAULT 'north',
   notif_rahu      BOOLEAN DEFAULT TRUE,
   notif_morning   BOOLEAN DEFAULT TRUE,
   notif_festival  BOOLEAN DEFAULT TRUE,
@@ -54,6 +55,7 @@ CREATE TABLE IF NOT EXISTS devices (
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_devices_fcm ON devices(fcm_token);
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS calendar_region TEXT DEFAULT 'north';
 
 CREATE TABLE IF NOT EXISTS festivals (
   id          SERIAL PRIMARY KEY,
