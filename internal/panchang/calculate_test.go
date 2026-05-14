@@ -93,13 +93,16 @@ func TestLunarDayJSONIncludesRegionalCalendarFields(t *testing.T) {
 	}
 }
 
-func TestLunarMonthFromMoonLongitudeUsesFullMoonSign(t *testing.T) {
+func TestLunarMonthFromMoonLongitudeUsesFullMoonNakshatra(t *testing.T) {
 	cases := map[float64]int{
-		0:   MonthKartika,
-		30:  MonthMargashirsha,
-		150: MonthChaitra,
-		180: MonthVaishakha,
-		330: MonthAshwin,
+		0:               MonthAshwin,       // Ashwini full Moon
+		15:              MonthAshwin,       // Bharani remains closer to Ashwini than Krittika
+		30:              MonthKartika,      // Krittika full Moon
+		56 + 40.0/60.0:  MonthMargashirsha, // Mrigashira full Moon
+		180:             MonthChaitra,      // Chitra full Moon
+		206 + 40.0/60.0: MonthVaishakha,    // Vishakha full Moon
+		333 + 20.0/60.0: MonthBhadrapada,   // Bhadrapada full Moon
+		359:             MonthAshwin,       // wrap around to Ashwini
 	}
 
 	for moonLon, want := range cases {
