@@ -229,15 +229,49 @@ func fullMoonForLunarMonth(t time.Time, calendar string) (time.Time, error) {
 	return nextFullMoon(t)
 }
 
+type lunarMonthAnchor struct {
+	month     int
+	longitude float64
+}
+
+var lunarMonthAnchors = []lunarMonthAnchor{
+	{MonthAshwin, 6 + 40.0/60.0},        // Ashwini midpoint
+	{MonthKartika, 33 + 20.0/60.0},      // Krittika midpoint
+	{MonthMargashirsha, 56 + 40.0/60.0}, // Mrigashira midpoint
+	{MonthPausha, 100},                  // Pushya midpoint
+	{MonthMagha, 126 + 40.0/60.0},       // Magha midpoint
+	{MonthPhalguna, 146 + 40.0/60.0},    // Purva/Uttara Phalguni midpoint
+	{MonthChaitra, 180},                 // Chitra midpoint
+	{MonthVaishakha, 206 + 40.0/60.0},   // Vishakha midpoint
+	{MonthJyeshtha, 233 + 20.0/60.0},    // Jyeshtha midpoint
+	{MonthAshadha, 266 + 40.0/60.0},     // Purva/Uttara Ashadha midpoint
+	{MonthShravana, 286 + 40.0/60.0},    // Shravana midpoint
+	{MonthBhadrapada, 333 + 20.0/60.0},  // Purva/Uttara Bhadrapada midpoint
+}
+
 func lunarMonthFromMoonLongitude(moonLon float64) int {
-	moonSign := int(norm360(moonLon) / 30.0)
-	if moonSign > 11 {
-		moonSign = 11
+	lon := norm360(moonLon)
+	best := lunarMonthAnchors[0]
+	bestDistance := angularDistance(lon, best.longitude)
+	for _, anchor := range lunarMonthAnchors[1:] {
+		distance := angularDistance(lon, anchor.longitude)
+		if distance < bestDistance {
+			best, bestDistance = anchor, distance
+		}
 	}
-	// Lunar months are named for the nakshatra/rashi region occupied by the
-	// Moon at full moon: Chaitra full moon is in Virgo, Vaishakha in Libra, ...,
-	// Kartika in Aries. This sign mapping is direct Moon-longitude based.
-	return (moonSign + 7) % 12
+	// Lunar months are named for the nakshatra near the full Moon. Using the
+	// whole 30° rashi prepones months when the full Moon is in the early part of
+	// a sign, for example an Ashwini/Bharani full Moon must still be Ashwin, not
+	// Kartika. Match to the nearest eponymous nakshatra anchor instead.
+	return best.month
+}
+
+func angularDistance(a, b float64) float64 {
+	diff := norm360(a - b)
+	if diff > 180 {
+		return 360 - diff
+	}
+	return diff
 }
 
 func nextFullMoon(from time.Time) (time.Time, error) {
