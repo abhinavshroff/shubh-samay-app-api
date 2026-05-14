@@ -165,6 +165,10 @@ func Compute(date time.Time, lat, lon float64, tz string) (*Result, error) {
 	if tithiIdx > 29 {
 		tithiIdx = 29
 	}
+	tithiEndsAt := ""
+	if boundary, err := nextTithiBoundary(sunriseT, tithiIdx); err == nil {
+		tithiEndsAt = boundary.In(loc).Format("3:04 PM")
+	}
 
 	// Nakshatra: Moon longitude / 13.333° (= 360/27)
 	nakIdx := int(moonLon / (360.0 / 27.0))
@@ -210,7 +214,7 @@ func Compute(date time.Time, lat, lon float64, tz string) (*Result, error) {
 		Date:          day.Format("2006-01-02"),
 		Weekday:       weekdayName,
 		WeekdayHi:     weekdayHi,
-		Tithi:         Element{TithiNames[tithiIdx], TithiNamesHi[tithiIdx], TithiNamesTe[tithiIdx], ""},
+		Tithi:         Element{TithiNames[tithiIdx], TithiNamesHi[tithiIdx], TithiNamesTe[tithiIdx], tithiEndsAt},
 		Nakshatra:     Element{NakshatraNames[nakIdx], NakshatraNamesHi[nakIdx], "", ""},
 		Yoga:          Element{YogaNames[yogaIdx], "", "", ""},
 		Karana:        Element{KaranaNames[karIdx], "", "", ""},
@@ -254,15 +258,16 @@ func sunRiseSet(day time.Time, lat, lon float64, rise bool) (time.Time, error) {
 	if ret := swe.RiseTrans(jd, swe.SeSun, nil, ephemerisFlag, int(rsmi), geopos, 1013.25, 15.0, tret, serr); ret < 0 {
 		return time.Time{}, fmt.Errorf("rise/set failed: %s", string(serr))
 	}
-	// Convert JD back to UTC time
-	jdRet := tret[0]
+	return jdFloatToTime(tret[0]), nil
+}
+
+func jdFloatToTime(jdRet float64) time.Time {
 	z := jdRet + 0.5
 	zInt := math.Floor(z)
 	frac := z - zInt
 	secs := frac * 86400
 	year, mon, dy := jdToCal(int(zInt))
-	t := time.Date(year, time.Month(mon), dy, 0, 0, 0, 0, time.UTC).Add(time.Duration(secs * float64(time.Second)))
-	return t, nil
+	return time.Date(year, time.Month(mon), dy, 0, 0, 0, 0, time.UTC).Add(time.Duration(secs * float64(time.Second)))
 }
 
 func jdToCal(jdn int) (int, int, int) {

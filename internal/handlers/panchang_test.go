@@ -24,3 +24,12 @@ func TestParseRequiredFloatQueryAcceptsCoordinateAliases(t *testing.T) {
 		t.Fatalf("unexpected longitude: got %v", lon)
 	}
 }
+
+func TestFirstQueryValueAcceptsRegionalCalendarAliases(t *testing.T) {
+	req := httptest.NewRequest("GET", "/v1/lunar-days?regionalCalendar=south", nil)
+
+	got := firstQueryValue(req, "calendar", "regionalCalendar", "region", "calendarRegion")
+	if got != "south" {
+		t.Fatalf("unexpected regional calendar: got %q", got)
+	}
+}
