@@ -234,23 +234,50 @@ type lunarMonthAnchor struct {
 	longitude float64
 }
 
+type lunarMonthRange struct {
+	month int
+	start float64
+	end   float64
+}
+
+var lunarMonthRanges = []lunarMonthRange{
+	{MonthAshwin, 0, 26 + 40.0/60.0},                    // Ashwini/Bharani
+	{MonthKartika, 26 + 40.0/60.0, 40},                  // Krittika
+	{MonthMargashirsha, 53 + 20.0/60.0, 66 + 40.0/60.0}, // Mrigashira
+	{MonthPausha, 93 + 20.0/60.0, 106 + 40.0/60.0},      // Pushya
+	{MonthMagha, 120, 133 + 20.0/60.0},                  // Magha
+	{MonthPhalguna, 133 + 20.0/60.0, 160},               // Purva/Uttara Phalguni
+	{MonthChaitra, 173 + 20.0/60.0, 186 + 40.0/60.0},    // Chitra
+	{MonthVaishakha, 200, 213 + 20.0/60.0},              // Vishakha
+	{MonthJyeshtha, 226 + 40.0/60.0, 240},               // Jyeshtha
+	{MonthAshadha, 253 + 20.0/60.0, 280},                // Purva/Uttara Ashadha
+	{MonthShravana, 280, 293 + 20.0/60.0},               // Shravana
+	{MonthBhadrapada, 320, 346 + 40.0/60.0},             // Purva/Uttara Bhadrapada
+}
+
 var lunarMonthAnchors = []lunarMonthAnchor{
-	{MonthAshwin, 6 + 40.0/60.0},        // Ashwini midpoint
-	{MonthKartika, 33 + 20.0/60.0},      // Krittika midpoint
-	{MonthMargashirsha, 56 + 40.0/60.0}, // Mrigashira midpoint
-	{MonthPausha, 100},                  // Pushya midpoint
-	{MonthMagha, 126 + 40.0/60.0},       // Magha midpoint
-	{MonthPhalguna, 146 + 40.0/60.0},    // Purva/Uttara Phalguni midpoint
-	{MonthChaitra, 180},                 // Chitra midpoint
-	{MonthVaishakha, 206 + 40.0/60.0},   // Vishakha midpoint
-	{MonthJyeshtha, 233 + 20.0/60.0},    // Jyeshtha midpoint
-	{MonthAshadha, 266 + 40.0/60.0},     // Purva/Uttara Ashadha midpoint
-	{MonthShravana, 286 + 40.0/60.0},    // Shravana midpoint
-	{MonthBhadrapada, 333 + 20.0/60.0},  // Purva/Uttara Bhadrapada midpoint
+	{MonthAshwin, 13 + 20.0/60.0},      // Ashwini/Bharani midpoint
+	{MonthKartika, 33 + 20.0/60.0},     // Krittika midpoint
+	{MonthMargashirsha, 60},            // Mrigashira midpoint
+	{MonthPausha, 100},                 // Pushya midpoint
+	{MonthMagha, 126 + 40.0/60.0},      // Magha midpoint
+	{MonthPhalguna, 146 + 40.0/60.0},   // Purva/Uttara Phalguni midpoint
+	{MonthChaitra, 180},                // Chitra midpoint
+	{MonthVaishakha, 206 + 40.0/60.0},  // Vishakha midpoint
+	{MonthJyeshtha, 233 + 20.0/60.0},   // Jyeshtha midpoint
+	{MonthAshadha, 266 + 40.0/60.0},    // Purva/Uttara Ashadha midpoint
+	{MonthShravana, 286 + 40.0/60.0},   // Shravana midpoint
+	{MonthBhadrapada, 333 + 20.0/60.0}, // Purva/Uttara Bhadrapada midpoint
 }
 
 func lunarMonthFromMoonLongitude(moonLon float64) int {
 	lon := norm360(moonLon)
+	for _, monthRange := range lunarMonthRanges {
+		if longitudeInRange(lon, monthRange.start, monthRange.end) {
+			return monthRange.month
+		}
+	}
+
 	best := lunarMonthAnchors[0]
 	bestDistance := angularDistance(lon, best.longitude)
 	for _, anchor := range lunarMonthAnchors[1:] {
@@ -259,11 +286,20 @@ func lunarMonthFromMoonLongitude(moonLon float64) int {
 			best, bestDistance = anchor, distance
 		}
 	}
-	// Lunar months are named for the nakshatra near the full Moon. Using the
-	// whole 30° rashi prepones months when the full Moon is in the early part of
-	// a sign, for example an Ashwini/Bharani full Moon must still be Ashwin, not
-	// Kartika. Match to the nearest eponymous nakshatra anchor instead.
+	// Lunar months are named for the full Moon's eponymous nakshatra, not the
+	// whole 30° rashi. Prefer the complete nakshatra range first so early Purva
+	// Phalguni, Purva Ashadha, or Bharani full Moons do not fall back to the
+	// previous or next month. Gaps are resolved to the nearest month anchor.
 	return best.month
+}
+
+func longitudeInRange(lon, start, end float64) bool {
+	start = norm360(start)
+	end = norm360(end)
+	if start <= end {
+		return lon >= start && lon < end
+	}
+	return lon >= start || lon < end
 }
 
 func angularDistance(a, b float64) float64 {
