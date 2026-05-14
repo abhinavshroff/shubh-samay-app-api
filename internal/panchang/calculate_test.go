@@ -96,11 +96,15 @@ func TestLunarDayJSONIncludesRegionalCalendarFields(t *testing.T) {
 func TestLunarMonthFromMoonLongitudeUsesFullMoonNakshatra(t *testing.T) {
 	cases := map[float64]int{
 		0:               MonthAshwin,       // Ashwini full Moon
-		15:              MonthAshwin,       // Bharani remains closer to Ashwini than Krittika
+		15:              MonthAshwin,       // Bharani remains Ashwin
+		25:              MonthAshwin,       // late Bharani must not roll into Kartika
 		30:              MonthKartika,      // Krittika full Moon
 		56 + 40.0/60.0:  MonthMargashirsha, // Mrigashira full Moon
+		133 + 25.0/60.0: MonthPhalguna,     // early Purva Phalguni must not stay in Magha
 		180:             MonthChaitra,      // Chitra full Moon
 		206 + 40.0/60.0: MonthVaishakha,    // Vishakha full Moon
+		253 + 25.0/60.0: MonthAshadha,      // early Purva Ashadha must not stay in Jyeshtha
+		320 + 5.0/60.0:  MonthBhadrapada,   // early Purva Bhadrapada must not stay in Shravana
 		333 + 20.0/60.0: MonthBhadrapada,   // Bhadrapada full Moon
 		359:             MonthAshwin,       // wrap around to Ashwini
 	}
