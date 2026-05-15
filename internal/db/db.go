@@ -102,9 +102,9 @@ INSERT INTO feature_flags (key, enabled, tier) VALUES
   ('home_widget',            TRUE, 'Freemium')
 ON CONFLICT (key) DO NOTHING;
 
--- Seed a computed-calendar fallback for common 2026 India festival dates. The
--- API computes festivals from rules first; these rows are only returned if the
--- astronomical calculator is unavailable.
+-- Seed curated common 2026 India festival dates. The festivals endpoint
+-- serves these database rows first so admin-corrected dates are authoritative,
+-- and only falls back to computed rules when no rows exist for a date window.
 INSERT INTO festivals (date, name_en, name_hi, tithi_hi, region, significance)
 SELECT date::DATE, name_en, name_hi, tithi_hi, region, significance
 FROM (VALUES
