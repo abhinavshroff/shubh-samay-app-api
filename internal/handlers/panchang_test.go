@@ -33,3 +33,23 @@ func TestFirstQueryValueAcceptsRegionalCalendarAliases(t *testing.T) {
 		t.Fatalf("unexpected regional calendar: got %q", got)
 	}
 }
+
+func TestDedupeSeededFestivalsKeepsFirstDateNamePair(t *testing.T) {
+	items := []seededFestival{
+		{ISODate: "2026-09-04", Name: "Krishna Janmashtami", Date: "4 Sep", DaysAway: 1},
+		{ISODate: "2026-09-04", Name: "Krishna Janmashtami", Date: "4 Sep", DaysAway: 1, Region: "duplicate"},
+		{ISODate: "2026-09-14", Name: "Ganesh Chaturthi", Date: "14 Sep", DaysAway: 11},
+	}
+
+	got := dedupeSeededFestivals(items)
+
+	if len(got) != 2 {
+		t.Fatalf("expected 2 deduped festivals, got %d: %#v", len(got), got)
+	}
+	if got[0].Region != "" {
+		t.Fatalf("expected first duplicate to be preserved, got %#v", got[0])
+	}
+	if got[0].Name != "Krishna Janmashtami" || got[1].Name != "Ganesh Chaturthi" {
+		t.Fatalf("dedupe changed festival order: %#v", got)
+	}
+}
