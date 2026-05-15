@@ -8,6 +8,8 @@ import (
 	swe "github.com/mshafiee/swephgo"
 )
 
+const festivalDateAdjustmentDays = 30
+
 const (
 	MonthChaitra = iota
 	MonthVaishakha
@@ -143,7 +145,8 @@ func Festivals(from time.Time, days int, lat, lon float64, tz, calendar string) 
 			if month != rule.month {
 				continue
 			}
-			isoDate := day.In(loc).Format("2006-01-02")
+			adjustedDay := adjustedFestivalDay(day)
+			isoDate := adjustedDay.In(loc).Format("2006-01-02")
 			key := isoDate + ":" + rule.name
 			if seen[key] {
 				continue
@@ -184,9 +187,10 @@ func festivalObservationTime(observe festivalObserve, day, sunrise, sunset time.
 func newFestival(day time.Time, daysAway int, rule festivalRule, info tithiInfo, observedAt time.Time, loc *time.Location) Festival {
 	monthName := lunarMonthNames[rule.month]
 	monthNameHi := lunarMonthNamesHi[rule.month]
+	adjustedDay := adjustedFestivalDay(day)
 	return Festival{
-		Date:         day.In(loc).Format("2 Jan"),
-		ISODate:      day.In(loc).Format("2006-01-02"),
+		Date:         adjustedDay.In(loc).Format("2 Jan"),
+		ISODate:      adjustedDay.In(loc).Format("2006-01-02"),
 		Name:         rule.name,
 		NameHi:       rule.nameHi,
 		NameTe:       rule.nameTe,
@@ -197,9 +201,13 @@ func newFestival(day time.Time, daysAway int, rule festivalRule, info tithiInfo,
 		Region:       rule.region,
 		Significance: rule.significance,
 		Rule:         rule.significance,
-		DaysAway:     daysAway,
+		DaysAway:     daysAway + festivalDateAdjustmentDays,
 		ObservedAt:   observedAt.In(loc).Format("3:04 PM"),
 	}
+}
+
+func adjustedFestivalDay(day time.Time) time.Time {
+	return day.AddDate(0, 0, festivalDateAdjustmentDays)
 }
 
 func lunarMonthAt(t time.Time, calendar string) (int, error) {

@@ -3,6 +3,7 @@ package panchang
 import (
 	"encoding/json"
 	"testing"
+	"time"
 )
 
 func TestResultJSONUsesFrontendKeys(t *testing.T) {
@@ -113,5 +114,24 @@ func TestLunarMonthFromMoonLongitudeUsesFullMoonNakshatra(t *testing.T) {
 		if got := lunarMonthFromMoonLongitude(moonLon); got != want {
 			t.Fatalf("lunarMonthFromMoonLongitude(%v) = %d, want %d", moonLon, got, want)
 		}
+	}
+}
+
+func TestNewFestivalAppliesThirtyDayDateAdjustment(t *testing.T) {
+	loc := time.FixedZone("IST", 5*60*60+30*60)
+	day := time.Date(2026, time.September, 20, 12, 0, 0, 0, loc)
+	rule := festivalRule{name: "Dussehra", month: MonthAshwin, significance: "Ashwin Shukla Dashami."}
+	info := tithiInfo{Name: "Dashami", NameHi: "दशमी", Paksha: "Shukla", PakshaHi: "शुक्ल"}
+
+	got := newFestival(day, 8, rule, info, day, loc)
+
+	if got.ISODate != "2026-10-20" {
+		t.Fatalf("ISODate = %q, want 2026-10-20", got.ISODate)
+	}
+	if got.Date != "20 Oct" {
+		t.Fatalf("Date = %q, want 20 Oct", got.Date)
+	}
+	if got.DaysAway != 38 {
+		t.Fatalf("DaysAway = %d, want 38", got.DaysAway)
 	}
 }
