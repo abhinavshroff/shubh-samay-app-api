@@ -92,19 +92,6 @@ func GetLunarDays(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func FindMuhurat(w http.ResponseWriter, r *http.Request) {
-	activity := r.URL.Query().Get("activity")
-	if activity == "" {
-		activity = "travel"
-	}
-	WriteJSON(w, http.StatusOK, JSONMap{
-		"activity": activity,
-		"date":     "Mon, 4 May",
-		"time":     "7:30 AM – 9:00 AM",
-		"meta":     "Rohini nakshatra • Shubha yoga • After sunrise",
-	})
-}
-
 func parseRequiredFloatQuery(r *http.Request, names ...string) (float64, error) {
 	query := r.URL.Query()
 	for _, name := range names {
