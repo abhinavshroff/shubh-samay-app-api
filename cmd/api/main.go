@@ -36,7 +36,7 @@ func main() {
 	mux.HandleFunc("GET /v1/panchang", handlers.GetPanchang)
 	mux.HandleFunc("GET /v1/festivals", handlers.GetFestivals(database))
 	mux.HandleFunc("GET /v1/lunar-days", handlers.GetLunarDays)
-	mux.HandleFunc("GET /v1/muhurat", handlers.FindMuhurat)
+	mux.HandleFunc("GET /v1/muhurat", handlers.GetMuhurat)
 	mux.HandleFunc("GET /v1/config", handlers.GetConfig(database))
 	mux.HandleFunc("POST /v1/devices", handlers.RegisterDevice(database))
 	mux.HandleFunc("PATCH /v1/admin/flags/{key}", adminAuth(cfg.AdminToken, handlers.UpdateFlag(database)))
