@@ -2,10 +2,9 @@ package handlers
 
 import (
 	"database/sql"
-	"time"
-
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/shubh-samay/api/internal/panchang"
 )
@@ -31,22 +30,10 @@ func GetFestivals(pool *sql.DB) http.HandlerFunc {
 			tz = "Asia/Kolkata"
 		}
 
-		from := time.Now()
-		if fromStr := firstQueryValue(r, "from", "date"); fromStr != "" {
-			from, err = time.Parse("2006-01-02", fromStr)
-			if err != nil {
-				WriteError(w, http.StatusBadRequest, "invalid from date format, use YYYY-MM-DD")
-				return
-			}
-		}
-
-		days := 120
-		if daysStr := r.URL.Query().Get("days"); daysStr != "" {
-			days, err = strconv.Atoi(daysStr)
-			if err != nil || days <= 0 {
-				WriteError(w, http.StatusBadRequest, "invalid days")
-				return
-			}
+		from, days, rangeMode, err := dateWindowFromQuery(r, tz, 120)
+		if err != nil {
+			WriteError(w, http.StatusBadRequest, err.Error())
+			return
 		}
 
 		calendar := firstQueryValue(r, "calendar", "regionalCalendar", "region", "calendarRegion")
@@ -55,6 +42,9 @@ func GetFestivals(pool *sql.DB) http.HandlerFunc {
 			WriteJSON(w, http.StatusOK, JSONMap{
 				"calendar": panchang.NormalizeCalendar(calendar),
 				"source":   "db_seed",
+				"range":    rangeMode,
+				"from":     from.Format("2006-01-02"),
+				"days":     days,
 				"items":    seeded,
 			})
 			return
@@ -72,6 +62,9 @@ func GetFestivals(pool *sql.DB) http.HandlerFunc {
 		WriteJSON(w, http.StatusOK, JSONMap{
 			"calendar": panchang.NormalizeCalendar(calendar),
 			"source":   "computed",
+			"range":    rangeMode,
+			"from":     from.Format("2006-01-02"),
+			"days":     days,
 			"items":    items,
 		})
 	}
@@ -112,15 +105,27 @@ ORDER BY date, lower(trim(name_en)), id`, from.Format("2006-01-02"), to.Format("
 		if err := rows.Scan(&date, &item.Name, &item.NameHi, &item.NameTe, &item.TithiHi, &item.Region, &item.Significance); err != nil {
 			return nil, err
 		}
-		item.Date = date.Format("2 Jan")
-		item.ISODate = date.Format("2006-01-02")
-		item.DaysAway = int(date.Sub(time.Date(from.Year(), from.Month(), from.Day(), 0, 0, 0, 0, from.Location())).Hours() / 24)
+		localDate := localCalendarDate(date, from.Location())
+		item.Date = localDate.Format("2 Jan")
+		item.ISODate = localDate.Format("2006-01-02")
+		item.DaysAway = calendarDaysBetween(from, localDate)
 		items = append(items, item)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
 	return dedupeSeededFestivals(items), nil
+}
+
+func localCalendarDate(date time.Time, loc *time.Location) time.Time {
+	return time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, loc)
+}
+
+func calendarDaysBetween(from, date time.Time) int {
+	fromDate := time.Date(from.Year(), from.Month(), from.Day(), 0, 0, 0, 0, time.UTC)
+	dateInFromLocation := localCalendarDate(date, from.Location())
+	dateOnly := time.Date(dateInFromLocation.Year(), dateInFromLocation.Month(), dateInFromLocation.Day(), 0, 0, 0, 0, time.UTC)
+	return int(dateOnly.Sub(fromDate).Hours() / 24)
 }
 
 func dedupeSeededFestivals(items []seededFestival) []seededFestival {

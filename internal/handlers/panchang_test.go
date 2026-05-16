@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 func TestParseRequiredFloatQueryAcceptsCoordinateAliases(t *testing.T) {
@@ -51,5 +52,91 @@ func TestDedupeSeededFestivalsKeepsFirstDateNamePair(t *testing.T) {
 	}
 	if got[0].Name != "Krishna Janmashtami" || got[1].Name != "Ganesh Chaturthi" {
 		t.Fatalf("dedupe changed festival order: %#v", got)
+	}
+}
+
+func TestDateWindowFromQueryUsesRequestedCalendarYear(t *testing.T) {
+	req := httptest.NewRequest("GET", "/v1/lunar-days?year=2026", nil)
+
+	from, days, rangeMode, err := dateWindowFromQuery(req, "Asia/Kolkata", 45)
+	if err != nil {
+		t.Fatalf("dateWindowFromQuery returned error: %v", err)
+	}
+
+	if got := from.Format("2006-01-02"); got != "2026-01-01" {
+		t.Fatalf("from = %q, want 2026-01-01", got)
+	}
+	if days != 365 {
+		t.Fatalf("days = %d, want 365", days)
+	}
+	if rangeMode != calendarYearRange {
+		t.Fatalf("range = %q, want %q", rangeMode, calendarYearRange)
+	}
+}
+
+func TestDateWindowFromQueryUsesLeapYearLength(t *testing.T) {
+	req := httptest.NewRequest("GET", "/v1/festivals?calendarYear=2028", nil)
+
+	from, days, rangeMode, err := dateWindowFromQuery(req, "Asia/Kolkata", 120)
+	if err != nil {
+		t.Fatalf("dateWindowFromQuery returned error: %v", err)
+	}
+
+	if got := from.Format("2006-01-02"); got != "2028-01-01" {
+		t.Fatalf("from = %q, want 2028-01-01", got)
+	}
+	if days != 366 {
+		t.Fatalf("days = %d, want 366", days)
+	}
+	if rangeMode != calendarYearRange {
+		t.Fatalf("range = %q, want %q", rangeMode, calendarYearRange)
+	}
+}
+
+func TestDateWindowFromQueryKeepsRollingWindowByDefault(t *testing.T) {
+	req := httptest.NewRequest("GET", "/v1/festivals?from=2026-05-16&days=10", nil)
+
+	from, days, rangeMode, err := dateWindowFromQuery(req, "Asia/Kolkata", 120)
+	if err != nil {
+		t.Fatalf("dateWindowFromQuery returned error: %v", err)
+	}
+
+	if got := from.Format("2006-01-02"); got != "2026-05-16" {
+		t.Fatalf("from = %q, want 2026-05-16", got)
+	}
+	if days != 10 {
+		t.Fatalf("days = %d, want 10", days)
+	}
+	if rangeMode != "rolling" {
+		t.Fatalf("range = %q, want rolling", rangeMode)
+	}
+}
+
+func TestDateWindowFromQuerySupportsMobileCalendarFlag(t *testing.T) {
+	req := httptest.NewRequest("GET", "/v1/lunar-days?mobileCalendar=true", nil)
+
+	from, days, rangeMode, err := dateWindowFromQuery(req, "Asia/Kolkata", 45)
+	if err != nil {
+		t.Fatalf("dateWindowFromQuery returned error: %v", err)
+	}
+
+	if got := from.Format("01-02"); got != "01-01" {
+		t.Fatalf("from month/day = %q, want 01-01", got)
+	}
+	if days != 365 && days != 366 {
+		t.Fatalf("days = %d, want a whole calendar year", days)
+	}
+	if rangeMode != calendarYearRange {
+		t.Fatalf("range = %q, want %q", rangeMode, calendarYearRange)
+	}
+}
+
+func TestSeededFestivalDaysAwayUsesCalendarDates(t *testing.T) {
+	from := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.FixedZone("IST", 5*60*60+30*60))
+	date := time.Date(2026, time.January, 2, 0, 0, 0, 0, time.UTC)
+
+	got := calendarDaysBetween(from, date)
+	if got != 1 {
+		t.Fatalf("calendar date daysAway = %d, want 1", got)
 	}
 }
