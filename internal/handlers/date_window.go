@@ -13,6 +13,16 @@ const calendarYearRange = "calendar_year"
 // dateWindowFromQuery returns either the requested rolling date window or the
 // full local calendar year when the mobile calendar asks for year-scoped data.
 func dateWindowFromQuery(r *http.Request, tz string, defaultDays int) (time.Time, int, string, error) {
+	return dateWindowFromQueryOptions(r, tz, defaultDays, false)
+}
+
+// calendarDataWindowFromQuery defaults an unscoped calendar feed request to the
+// complete current local calendar year while preserving explicit rolling windows.
+func calendarDataWindowFromQuery(r *http.Request, tz string, defaultDays int) (time.Time, int, string, error) {
+	return dateWindowFromQueryOptions(r, tz, defaultDays, true)
+}
+
+func dateWindowFromQueryOptions(r *http.Request, tz string, defaultDays int, defaultToCurrentYear bool) (time.Time, int, string, error) {
 	loc, err := time.LoadLocation(tz)
 	if err != nil {
 		return time.Time{}, 0, "", fmt.Errorf("invalid timezone")
@@ -22,8 +32,12 @@ func dateWindowFromQuery(r *http.Request, tz string, defaultDays int) (time.Time
 		if err != nil {
 			return time.Time{}, 0, "", err
 		}
-		from := time.Date(year, time.January, 1, 0, 0, 0, 0, loc)
-		return from, daysInCalendarYear(year), calendarYearRange, nil
+		return calendarYearWindow(year, loc), daysInCalendarYear(year), calendarYearRange, nil
+	}
+
+	if defaultToCurrentYear && !hasRollingWindowQuery(r) {
+		year := time.Now().In(loc).Year()
+		return calendarYearWindow(year, loc), daysInCalendarYear(year), calendarYearRange, nil
 	}
 
 	from := time.Now().In(loc)
@@ -43,6 +57,18 @@ func dateWindowFromQuery(r *http.Request, tz string, defaultDays int) (time.Time
 	}
 
 	return from, days, "rolling", nil
+}
+
+func calendarYearWindow(year int, loc *time.Location) time.Time {
+	return time.Date(year, time.January, 1, 0, 0, 0, 0, loc)
+}
+
+func hasRollingWindowQuery(r *http.Request) bool {
+	if firstQueryValue(r, "from", "date", "days") != "" {
+		return true
+	}
+
+	return firstQueryValue(r, "range", "scope") != ""
 }
 
 func daysInCalendarYear(year int) int {

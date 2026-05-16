@@ -131,6 +131,45 @@ func TestDateWindowFromQuerySupportsMobileCalendarFlag(t *testing.T) {
 	}
 }
 
+func TestCalendarDataWindowFromQueryDefaultsToCurrentCalendarYear(t *testing.T) {
+	req := httptest.NewRequest("GET", "/v1/lunar-days", nil)
+
+	from, days, rangeMode, err := calendarDataWindowFromQuery(req, "Asia/Kolkata", 45)
+	if err != nil {
+		t.Fatalf("calendarDataWindowFromQuery returned error: %v", err)
+	}
+
+	currentYear := time.Now().In(from.Location()).Year()
+	if got := from.Format("2006-01-02"); got != time.Date(currentYear, time.January, 1, 0, 0, 0, 0, from.Location()).Format("2006-01-02") {
+		t.Fatalf("from = %q, want current year start", got)
+	}
+	if days != daysInCalendarYear(currentYear) {
+		t.Fatalf("days = %d, want %d", days, daysInCalendarYear(currentYear))
+	}
+	if rangeMode != calendarYearRange {
+		t.Fatalf("range = %q, want %q", rangeMode, calendarYearRange)
+	}
+}
+
+func TestCalendarDataWindowFromQueryPreservesExplicitRollingWindow(t *testing.T) {
+	req := httptest.NewRequest("GET", "/v1/lunar-days?from=2026-05-16&days=45", nil)
+
+	from, days, rangeMode, err := calendarDataWindowFromQuery(req, "Asia/Kolkata", 45)
+	if err != nil {
+		t.Fatalf("calendarDataWindowFromQuery returned error: %v", err)
+	}
+
+	if got := from.Format("2006-01-02"); got != "2026-05-16" {
+		t.Fatalf("from = %q, want 2026-05-16", got)
+	}
+	if days != 45 {
+		t.Fatalf("days = %d, want 45", days)
+	}
+	if rangeMode != "rolling" {
+		t.Fatalf("range = %q, want rolling", rangeMode)
+	}
+}
+
 func TestSeededFestivalDaysAwayUsesCalendarDates(t *testing.T) {
 	from := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.FixedZone("IST", 5*60*60+30*60))
 	date := time.Date(2026, time.January, 2, 0, 0, 0, 0, time.UTC)
