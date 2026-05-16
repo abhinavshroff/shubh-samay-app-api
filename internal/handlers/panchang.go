@@ -61,22 +61,10 @@ func GetLunarDays(w http.ResponseWriter, r *http.Request) {
 		tz = "Asia/Kolkata"
 	}
 
-	from := time.Now()
-	if fromStr := r.URL.Query().Get("from"); fromStr != "" {
-		from, err = time.Parse("2006-01-02", fromStr)
-		if err != nil {
-			WriteError(w, http.StatusBadRequest, "invalid from date format, use YYYY-MM-DD")
-			return
-		}
-	}
-
-	days := 45
-	if daysStr := r.URL.Query().Get("days"); daysStr != "" {
-		days, err = strconv.Atoi(daysStr)
-		if err != nil || days <= 0 {
-			WriteError(w, http.StatusBadRequest, "invalid days")
-			return
-		}
+	from, days, rangeMode, err := dateWindowFromQuery(r, tz, 45)
+	if err != nil {
+		WriteError(w, http.StatusBadRequest, err.Error())
+		return
 	}
 
 	calendar := firstQueryValue(r, "calendar", "regionalCalendar", "region", "calendarRegion")
@@ -88,6 +76,9 @@ func GetLunarDays(w http.ResponseWriter, r *http.Request) {
 
 	WriteJSON(w, http.StatusOK, JSONMap{
 		"calendar": panchang.NormalizeCalendar(calendar),
+		"range":    rangeMode,
+		"from":     from.Format("2006-01-02"),
+		"days":     days,
 		"items":    items,
 	})
 }
