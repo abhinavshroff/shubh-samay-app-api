@@ -61,7 +61,7 @@ func GetLunarDays(w http.ResponseWriter, r *http.Request) {
 		tz = "Asia/Kolkata"
 	}
 
-	from, days, rangeMode, err := dateWindowFromQuery(r, tz, 45)
+	from, days, rangeMode, err := calendarDataWindowFromQuery(r, tz, 45)
 	if err != nil {
 		WriteError(w, http.StatusBadRequest, err.Error())
 		return

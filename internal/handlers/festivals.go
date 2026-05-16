@@ -30,7 +30,7 @@ func GetFestivals(pool *sql.DB) http.HandlerFunc {
 			tz = "Asia/Kolkata"
 		}
 
-		from, days, rangeMode, err := dateWindowFromQuery(r, tz, 120)
+		from, days, rangeMode, err := calendarDataWindowFromQuery(r, tz, 120)
 		if err != nil {
 			WriteError(w, http.StatusBadRequest, err.Error())
 			return
