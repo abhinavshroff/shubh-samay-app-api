@@ -247,7 +247,7 @@ func bodyLongitude(jd float64, body int) (float64, error) {
 }
 
 func sunRiseSet(day time.Time, lat, lon float64, rise bool) (time.Time, error) {
-	jd := julianDay(time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, time.UTC))
+	jd := julianDay(localMidnightUTC(day))
 	geopos := []float64{lon, lat, 0}
 	rsmi := int32(swe.SeCalcSet)
 	if rise {
@@ -259,6 +259,11 @@ func sunRiseSet(day time.Time, lat, lon float64, rise bool) (time.Time, error) {
 		return time.Time{}, fmt.Errorf("rise/set failed: %s", string(serr))
 	}
 	return jdFloatToTime(tret[0]), nil
+}
+
+func localMidnightUTC(day time.Time) time.Time {
+	localMidnight := time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, day.Location())
+	return localMidnight.UTC()
 }
 
 func jdFloatToTime(jdRet float64) time.Time {
