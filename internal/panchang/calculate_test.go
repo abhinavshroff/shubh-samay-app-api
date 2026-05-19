@@ -135,3 +135,41 @@ func TestNewFestivalAppliesThirtyDayDateAdjustment(t *testing.T) {
 		t.Fatalf("DaysAway = %d, want 38", got.DaysAway)
 	}
 }
+
+func TestLocalMidnightUTCUsesLocationDayBoundary(t *testing.T) {
+	kolkata := time.FixedZone("Asia/Kolkata", 5*60*60+30*60)
+	day := time.Date(2026, time.May, 19, 12, 0, 0, 0, kolkata)
+
+	got := localMidnightUTC(day)
+	want := time.Date(2026, time.May, 18, 18, 30, 0, 0, time.UTC)
+
+	if !got.Equal(want) {
+		t.Fatalf("localMidnightUTC() = %s, want %s", got.Format(time.RFC3339), want.Format(time.RFC3339))
+	}
+}
+
+func TestLocalMidnightUTCIsStableAcrossLongitudes(t *testing.T) {
+	cases := []struct {
+		name string
+		loc  *time.Location
+		want time.Time
+	}{
+		{
+			name: "east_of_utc",
+			loc:  time.FixedZone("UTC+8", 8*60*60),
+			want: time.Date(2026, time.January, 1, 16, 0, 0, 0, time.UTC),
+		},
+		{
+			name: "west_of_utc",
+			loc:  time.FixedZone("UTC-7", -7*60*60),
+			want: time.Date(2026, time.January, 2, 7, 0, 0, 0, time.UTC),
+		},
+	}
+
+	for _, tc := range cases {
+		day := time.Date(2026, time.January, 2, 12, 0, 0, 0, tc.loc)
+		if got := localMidnightUTC(day); !got.Equal(tc.want) {
+			t.Fatalf("%s: localMidnightUTC() = %s, want %s", tc.name, got.Format(time.RFC3339), tc.want.Format(time.RFC3339))
+		}
+	}
+}
