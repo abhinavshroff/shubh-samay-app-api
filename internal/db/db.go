@@ -120,6 +120,18 @@ WHERE date >= '2026-01-01'::DATE
   AND date < '2027-01-01'::DATE
   AND (slug IS NULL OR year IS NULL);
 
+-- Remove stale 2026 Jagannath Yatra seed rows that may have been inserted
+-- with an incorrect June date or a slightly different name/region before the
+-- curated seed became authoritative. The insert below re-adds the single
+-- corrected occurrence.
+DELETE FROM festivals
+WHERE date >= '2026-01-01'::DATE
+  AND date < '2027-01-01'::DATE
+  AND (
+    lower(COALESCE(slug, '')) IN ('jagannath-yatra', 'jagannath-rath-yatra')
+    OR lower(COALESCE(name_en, '')) IN ('jagannath yatra', 'jagannath rath yatra')
+  );
+
 INSERT INTO festivals (date, name_en, name_hi, tithi_hi, region, significance, slug, year, source)
 SELECT date::DATE, name_en, name_hi, tithi_hi, region, significance, slug, 2026, source
 FROM (VALUES
