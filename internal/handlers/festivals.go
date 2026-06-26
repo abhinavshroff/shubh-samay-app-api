@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/shubh-samay/api/internal/panchang"
@@ -133,17 +134,33 @@ func dedupeSeededFestivals(items []seededFestival) []seededFestival {
 		return items
 	}
 
-	deduped := items[:0]
-	seen := make(map[string]struct{}, len(items))
+	selected := make(map[string]seededFestival, len(items))
 	for _, item := range items {
-		key := item.ISODate + "\x00" + item.Name
+		selected[seededFestivalDedupeKey(item)] = item
+	}
+
+	deduped := items[:0]
+	seen := make(map[string]struct{}, len(selected))
+	for _, item := range items {
+		key := seededFestivalDedupeKey(item)
 		if _, ok := seen[key]; ok {
+			continue
+		}
+		if selectedItem := selected[key]; selectedItem.ISODate != item.ISODate || selectedItem.Name != item.Name {
 			continue
 		}
 		seen[key] = struct{}{}
 		deduped = append(deduped, item)
 	}
 	return deduped
+}
+
+func seededFestivalDedupeKey(item seededFestival) string {
+	year := item.ISODate
+	if len(year) > 4 {
+		year = year[:4]
+	}
+	return year + "\x00" + strings.ToLower(strings.TrimSpace(item.Name))
 }
 
 func optionalFloatQuery(r *http.Request, fallback float64, names ...string) (float64, error) {

@@ -35,7 +35,7 @@ func TestFirstQueryValueAcceptsRegionalCalendarAliases(t *testing.T) {
 	}
 }
 
-func TestDedupeSeededFestivalsKeepsFirstDateNamePair(t *testing.T) {
+func TestDedupeSeededFestivalsKeepsOneDateNamePair(t *testing.T) {
 	items := []seededFestival{
 		{ISODate: "2026-09-04", Name: "Krishna Janmashtami", Date: "4 Sep", DaysAway: 1},
 		{ISODate: "2026-09-04", Name: "Krishna Janmashtami", Date: "4 Sep", DaysAway: 1, Region: "duplicate"},
@@ -48,10 +48,30 @@ func TestDedupeSeededFestivalsKeepsFirstDateNamePair(t *testing.T) {
 		t.Fatalf("expected 2 deduped festivals, got %d: %#v", len(got), got)
 	}
 	if got[0].Region != "" {
-		t.Fatalf("expected first duplicate to be preserved, got %#v", got[0])
+		t.Fatalf("expected first same-day duplicate to be preserved, got %#v", got[0])
 	}
 	if got[0].Name != "Krishna Janmashtami" || got[1].Name != "Ganesh Chaturthi" {
 		t.Fatalf("dedupe changed festival order: %#v", got)
+	}
+}
+
+func TestDedupeSeededFestivalsKeepsLatestDateForSameFestivalYear(t *testing.T) {
+	items := []seededFestival{
+		{ISODate: "2026-06-16", Name: "Jagannath Rath Yatra", Date: "16 Jun", DaysAway: 166, Region: "legacy"},
+		{ISODate: "2026-07-16", Name: "Jagannath Rath Yatra", Date: "16 Jul", DaysAway: 196, Region: "odisha"},
+		{ISODate: "2027-07-05", Name: "Jagannath Rath Yatra", Date: "5 Jul", DaysAway: 550, Region: "odisha"},
+	}
+
+	got := dedupeSeededFestivals(items)
+
+	if len(got) != 2 {
+		t.Fatalf("expected one Jagannath Rath Yatra per year, got %d: %#v", len(got), got)
+	}
+	if got[0].ISODate != "2026-07-16" || got[0].Region != "odisha" {
+		t.Fatalf("expected corrected 2026 date to be preserved, got %#v", got[0])
+	}
+	if got[1].ISODate != "2027-07-05" {
+		t.Fatalf("expected next year occurrence to remain, got %#v", got[1])
 	}
 }
 
